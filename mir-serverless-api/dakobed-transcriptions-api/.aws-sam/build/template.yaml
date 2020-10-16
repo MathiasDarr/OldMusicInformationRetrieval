@@ -1,0 +1,141 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Dakobed Rest API Service
+Resources:
+  DakobedTranscriptionsApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      DefinitionUri: ../../swagger.yaml
+      BinaryMediaTypes:
+      - application/audio
+  DakobedModelLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: ../../model-layer.zip
+      CompatibleRuntimes:
+      - python3.6
+    Metadata:
+      BuildMethod: python3.6
+  TranscriptionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: TranscriptionFunction
+      Runtime: python3.6
+      Handler: handler.lambda_handler
+      CodeUri: ../../transcriptions
+      MemorySize: 512
+      Timeout: 30
+      Events:
+        TranscriptionSQSEvent:
+          Type: SQS
+          Properties:
+            Queue: arn:aws:sqs:us-west-2:710339184759:DakobedTranscriptionQueue
+            BatchSize: 10
+            Enabled: true
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName: dakobed-transcriptions
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedGuitarTranscriptions
+      Layers:
+      - arn:aws:lambda:us-west-2:347034527139:layer:tf_1_11_keras:1
+      - Ref: DakobedModelLayer
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: HelloWorldFunction
+      Runtime: python3.6
+      Handler: handler.handler
+      CodeUri: HelloWorldFunction
+      Timeout: 30
+      Events:
+        GetPetApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: DakobedTranscriptionsApi
+            Path: /tra/{transcriptionId}
+            Method: GET
+  GetTranscriptionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GetTranscriptionFunction
+      Runtime: python3.6
+      Handler: function.handler
+      CodeUri: ../../getTranscription
+      Events:
+        GetPetApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: DakobedTranscriptionsApi
+            Path: /transcription/{transcriptionId}
+            Method: GET
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedTranscriptions
+  LaunchEC2Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: LaunchEC2Function
+      Runtime: python3.6
+      Handler: handler.lambda_handler
+      CodeUri: ../../launchEC2
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: arn:aws:sqs:us-west-2:710339184759:DakobedEC2Transforms
+            BatchSize: 10
+            Enabled: true
+      Policies:
+      - SQSSendMessagePolicy:
+          QueueName: TransformQueue
+      - arn:aws:iam::710339184759:policy/LambdaEC2PassRolePolicy
+      - arn:aws:iam::710339184759:policy/LambdaLaunchEC2Policy
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedTranscriptions
+  DakobedTranscriptionTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: DakobedTranscriptionsTopic
+      DisplayName: Dakobed-Transcription-Topic
+  DakobedTranscriptionQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: DakobedTranscriptionQueue
+  DakobedTransformQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: DakobedTransformQueue
+  DakobedQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+      - Ref: DakobedTransformQueue
+      - Ref: DakobedTranscriptionQueue
+      PolicyDocument:
+        Statement:
+          Effect: Allow
+          Principal: '*'
+          Action: sqs:*
+          Resource: '*'
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Ref: DakobedTranscriptionTopic
+  DakobedQueueToSnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint:
+        Fn::GetAtt:
+        - DakobedTransformQueue
+        - Arn
+      Protocol: sqs
+      RawMessageDelivery: true
+      TopicArn:
+        Ref: DakobedTranscriptionTopic

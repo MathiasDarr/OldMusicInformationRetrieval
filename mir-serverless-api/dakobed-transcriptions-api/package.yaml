@@ -1,0 +1,252 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Dakobed Rest API Service
+Resources:
+  DakobedTranscriptionsApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      DefinitionUri: s3://dakobed-serverless-pipeline/565903dff99a09da0826ae5ff1fe7c4c
+      BinaryMediaTypes:
+      - application/audio
+  DakobedModelLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: s3://dakobed-serverless-pipeline/d74e0aec976a8e0a9b06f54f97a4cb59
+      CompatibleRuntimes:
+      - python3.6
+    Metadata:
+      BuildMethod: python3.6
+  TranscriptionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: TranscriptionFunction
+      Runtime: python3.6
+      Handler: handler.lambda_handler
+      CodeUri: s3://dakobed-serverless-pipeline/7ce403125a4b1ebab8075ab08a2f28a5
+      MemorySize: 512
+      Timeout: 30
+      Events:
+        TranscriptionSQSEvent:
+          Type: SQS
+          Properties:
+            Queue: arn:aws:sqs:us-west-2:710339184759:DakobedTranscriptionQueue
+            BatchSize: 10
+            Enabled: true
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName: dakobed-transcriptions
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedGuitarTranscriptions
+      Layers:
+      - arn:aws:lambda:us-west-2:347034527139:layer:tf_1_11_keras:1
+      - Ref: DakobedModelLayer
+  InitiateTransformFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: InitiateTransformFunction
+      Runtime: python3.6
+      Handler: handler.handler
+      CodeUri: s3://dakobed-serverless-pipeline/225db2a413905545571bed6607ff2178
+      Timeout: 30
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: arn:aws:sqs:us-west-2:710339184759:InitiateTransformsQueue
+            BatchSize: 10
+            Enabled: true
+      Policies:
+      - EC2DescribePolicy:
+          InstanceID: i-07b5b982327a4f6f2
+      - SQSSendMessagePolicy:
+          QueueName: DakobedTransformQueue
+      - arn:aws:iam::710339184759:policy/LambdaEC2PassRolePolicy
+      - arn:aws:iam::710339184759:policy/LambdaLaunchEC2Policy
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedTranscriptions
+  GetTranscriptionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GetTranscriptionFunction
+      Runtime: python3.6
+      Handler: handler.handler
+      CodeUri: s3://dakobed-serverless-pipeline/d363251fae45f017c0fa3dde833d204e
+      Events:
+        GetPetApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: DakobedTranscriptionsApi
+            Path: /transcription/{transcriptionId}
+            Method: GET
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName: dakobed-transcriptions
+      - S3FullAccessPolicy:
+          BucketName: dakobed-guitarset
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedTranscriptions
+  LaunchEC2Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: LaunchEC2Function
+      Runtime: python3.6
+      Handler: handler.lambda_handler
+      CodeUri: s3://dakobed-serverless-pipeline/3c74c6b6aea056c9e972d85e51960629
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: arn:aws:sqs:us-west-2:710339184759:DakobedEC2Transforms
+            BatchSize: 10
+            Enabled: true
+      Policies:
+      - SQSSendMessagePolicy:
+          QueueName: TransformQueue
+      - arn:aws:iam::710339184759:policy/LambdaEC2PassRolePolicy
+      - arn:aws:iam::710339184759:policy/LambdaLaunchEC2Policy
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedTranscriptions
+  DakobedTranscriptionTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: DakobedTranscriptionsTopic
+      DisplayName: Dakobed-Transcription-Topic
+  DakobedTranscriptionQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: DakobedTranscriptionQueue
+  DakobedTransformQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: DakobedTransformQueue
+  DakobedQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+      - Ref: DakobedTransformQueue
+      - Ref: DakobedTranscriptionQueue
+      PolicyDocument:
+        Statement:
+          Effect: Allow
+          Principal: '*'
+          Action: sqs:*
+          Resource: '*'
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Ref: DakobedTranscriptionTopic
+  DakobedQueueToSnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint:
+        Fn::GetAtt:
+        - DakobedTransformQueue
+        - Arn
+      Protocol: sqs
+      RawMessageDelivery: true
+      TopicArn:
+        Ref: DakobedTranscriptionTopic
+  StopEC2Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: StopEC2Function
+      Runtime: python3.6
+      Handler: handler.lambda_handler
+      CodeUri: s3://dakobed-serverless-pipeline/135693aae3c119a0280c415a09c0649d
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: arn:aws:sqs:us-west-2:710339184759:DakobedEC2StopQueue
+            BatchSize: 10
+            Enabled: false
+      Policies:
+      - arn:aws:iam::710339184759:policy/LambdaLaunchEC2Policy
+      - AWSLambdaBasicExecutionRole
+  GuitarsetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GuitarsetFunction
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName: DakobedGuitarSet
+      CodeUri: s3://dakobed-serverless-pipeline/78c061aeab266ca72b923fea553b5dc8
+      Handler: handler.lambda_handler
+      Runtime: python3.7
+      Events:
+        GuitarsetApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: DakobedTranscriptionsApi
+            Path: /guitarset
+            Method: GET
+  TabGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: TabGeneratorFunction
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName: DakobedGuitarSet
+      CodeUri: s3://dakobed-serverless-pipeline/7b7da81fab88ab2e1316eca871dec2d6
+      Handler: handler.lambda_handler
+      Runtime: python3.7
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: arn:aws:sqs:us-west-2:710339184759:DakobedTabQueue
+            BatchSize: 10
+            Enabled: false
+  TranscriptionDetailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: TranscriptionDetailFunction
+      Runtime: python3.6
+      Handler: handler.handler
+      CodeUri: s3://dakobed-serverless-pipeline/16c895dffed12f3033bd892dea94c2fc
+      Events:
+        TranscriptionDetailApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: DakobedTranscriptionsApi
+            Path: /transcription/{transcriptionId}
+            Method: GET
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName: dakobed-transcriptions
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedTranscriptions
+      - DynamoDBReadPolicy:
+          TableName: DakobedGuitarSet
+  GuitarSetDetailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GuitarSetDetailFunction
+      Runtime: python3.6
+      Handler: handler.handler
+      CodeUri: s3://dakobed-serverless-pipeline/ab9fda0ea364ee02af149c4d6dd756b2
+      Events:
+        TranscriptionDetailApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: DakobedTranscriptionsApi
+            Path: /guitarset/{transcriptionId}
+            Method: GET
+      Policies:
+      - S3FullAccessPolicy:
+          BucketName: dakobed-transcriptions
+      - S3FullAccessPolicy:
+          BucketName: dakobed-guitarset
+      - AWSLambdaBasicExecutionRole
+      - DynamoDBReadPolicy:
+          TableName: DakobedGuitarSet

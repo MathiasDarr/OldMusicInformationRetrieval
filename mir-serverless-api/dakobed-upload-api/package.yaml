@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Dakobed Rest API Service
+Resources:
+  DakobedUploadApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      DefinitionUri: s3://dakobed-serverless-pipeline/211d7dae1c4de690c55d8c6adc00c1bb
+      BinaryMediaTypes:
+      - application/audio
+  UploadAudioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Timeout: 10
+      FunctionName: UploadAudioFunction
+      Policies:
+      - SQSSendMessagePolicy:
+          QueueName: InitiateTransformsQueue
+      - AWSLambdaBasicExecutionRole
+      - S3CrudPolicy:
+          BucketName: dakobed-transcriptions
+      - DynamoDBCrudPolicy:
+          TableName: DakobedGuitarTranscriptions
+      CodeUri: s3://dakobed-serverless-pipeline/4c0ce0e439a6a4a798175e93f611e321
+      Handler: handler.lambda_handler
+      Runtime: python3.7
+      Events:
+        UploadApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: DakobedUploadApi
+            Path: /upload
+            Method: POST
