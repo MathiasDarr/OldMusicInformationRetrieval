@@ -1,5 +1,9 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
+Parameters:
+  SESEmailAddress:
+    Type: String
+    Default: arn:aws:ses:us-west-2:710339184759:identity/neuralstyleglacier@gmail.com
 Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
@@ -10,6 +14,10 @@ Resources:
         Fn::Sub: ${AWS::StackName}-UserPool
       UsernameAttributes:
       - email
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        SourceArn:
+          Ref: SESEmailAddress
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
