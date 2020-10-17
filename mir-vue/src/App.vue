@@ -2,17 +2,14 @@
   <v-app>
     <nav>
     <div>
-      <v-toolbar dark prominent  height="340px" src="https://dakobed.s3-us-west-1.amazonaws.com/panorama.jpg">
-
-      </v-toolbar>
     </div>
 
       <v-toolbar flat dark class="py-0 mt">
         
         <v-app-bar-nav-icon class ="grey--text" @click="drawer = !drawer"></v-app-bar-nav-icon>
           <v-toolbar-title class="grey--text">
-            <span class="font-weight-light">Dakobed</span>
-            <span>Bard</span>
+            <span class="font-weight-light">Music </span>
+            <span>Information Retrieval</span>
           </v-toolbar-title>
           <v-spacer></v-spacer>
       <v-toolbar-items class = "hidden-xs-only">
@@ -56,11 +53,9 @@ export default {
         drawer: false,
         menuItems:[
           {title:'Landing', route:'/' }, 
-          {title:'Music Information Retrieval', route:'/musiclanding/' }, 
-          {title:'Snotel', route:'/snotel/' },
-          {title: 'Spring ECS project', route:'/spring' },
-          {title:'Tweets', route:'/tweets/' }, 
-          {title:'Style', route:'/style/' }, 
+          {title:'Login', route:'/login/' }, 
+          {title:'Register', route:'/register/' },
+
           // {title: 'Kafka Microservices', route:'/eventservices' },
           // {title: 'Style Transfer', route:'/style' }
           // // {title:'Style Transfer', icon:'image-filter-hdr', route:'/styletransfer/' },

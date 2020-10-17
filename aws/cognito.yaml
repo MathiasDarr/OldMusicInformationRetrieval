@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      UserPoolName: !Sub ${AWS::StackName}-UserPool
+      UsernameAttributes:
+        - email
+      LambdaConfig:
+        PreSignUp: !GetAtt CognitoTriggered.Arn
+        PostConfirmation: !GetAtt CognitoTriggered.Arn
+        PreAuthentication: !GetAtt CognitoTriggered.Arn
+        PostAuthentication: !GetAtt CognitoTriggered.Arn
+        CustomMessage: !GetAtt CognitoTriggered.Arn
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: my-app
+      GenerateSecret: false
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+
+
+Parameters:
+  StackTagName:
+    Type: String
+    Description: Stack Name (injected by Stackery at deployment time)
+  EnvironmentTagName:
+    Type: String
+    Description: Environment Name (injected by Stackery at deployment time)
+  EnvironmentAPIGatewayStageName:
+    Type: String
+    Description: Environment name used for API Gateway Stage names (injected by Stackery at deployment time)
