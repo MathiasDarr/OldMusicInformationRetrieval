@@ -2,11 +2,12 @@ import Vue from 'vue'
 import Router from 'vue-router'
 
 import Login from './components/Login'
-
+import Register from './components/Register'
+import Confirm from './components/Confirm'
 // import Landing from './components/Landing'
 
 
-import Register from './components/Register'
+
 
 // import MaestroTranscriptions from './components/music/piano/MaestroTranscriptions'
 // import TranscriptionDetail from './components/music/guitar/TranscriptionDetail'
@@ -40,6 +41,13 @@ export default new Router({
       name:'register',
       component: Register
     },
+
+    {
+      path:'/confirm',
+      name:'confirm',
+      component: Confirm
+    },
+
 
     // {
     //   path: '/landing',

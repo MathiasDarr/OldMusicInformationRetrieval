@@ -55,6 +55,7 @@ export default {
           {title:'Landing', route:'/' }, 
           {title:'Login', route:'/login/' }, 
           {title:'Register', route:'/register/' },
+          {title:'Confirm', route:'/confirm/' },
 
           // {title: 'Kafka Microservices', route:'/eventservices' },
           // {title: 'Style Transfer', route:'/style' }

@@ -15,14 +15,14 @@ Resources:
         PreAuthentication: !GetAtt CognitoTriggered.Arn
         PostAuthentication: !GetAtt CognitoTriggered.Arn
         CustomMessage: !GetAtt CognitoTriggered.Arn
-  UserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
-    Properties:
-      ClientName: my-app
-      GenerateSecret: false
-      UserPoolId: !Ref UserPool
-      ExplicitAuthFlows:
-        - ADMIN_NO_SRP_AUTH
+#  UserPoolClient:
+#    Type: AWS::Cognito::UserPoolClient
+#    Properties:
+#      ClientName: my-app
+#      GenerateSecret: false
+#      UserPoolId: !Ref UserPool
+#      ExplicitAuthFlows:
+#        - ADMIN_NO_SRP_AUTH
 
 
 Parameters:
