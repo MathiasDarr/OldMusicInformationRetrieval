@@ -9,6 +9,28 @@ Parameters:
     Default: Dakobed Google
     Description: Unique Auth Name for Cognito Resources
 Resources:
+  SESRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - cognito-idp.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: CognitoSESPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ses:SendEmail
+            - ses:SendRawEmail
+            Resource: arn:aws:ses:us-west-2:710339184759:identity/neuralstyleglacier@gmail.com
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -18,10 +40,10 @@ Resources:
         Fn::Sub: ${AWS::StackName}-UserPool
       UsernameAttributes:
       - email
+      AutoVerifiedAttributes:
+      - email
       EmailConfiguration:
-        EmailSendingAccount: DEVELOPER
-        SourceArn:
-          Ref: SESEmailAddress
+        EmailSendingAccount: COGNITO_DEFAULT
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
@@ -31,16 +53,3 @@ Resources:
         Ref: UserPool
       ExplicitAuthFlows:
       - ADMIN_NO_SRP_AUTH
-  IdentityPool:
-    Type: AWS::Cognito::IdentityPool
-    Properties:
-      IdentityPoolName:
-        Fn::Sub: ${AuthName}Identity
-      AllowUnauthenticatedIdentities: true
-      CognitoIdentityProviders:
-      - ClientId:
-          Ref: UserPoolClient
-        ProviderName:
-          Fn::GetAtt:
-          - UserPool
-          - ProviderName

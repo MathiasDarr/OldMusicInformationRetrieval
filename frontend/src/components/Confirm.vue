@@ -4,9 +4,9 @@
         <div class="card-panel red darken-2" v-if="error != null"><span class="white-text">{{ error.message }}</span></div>
         <p>Enter the verification code you should have recieved via email</p>
          
-        <v-form ref="confirmForm" v-model="valid" lazy-validation>
-            <v-text-field v-model="email" :rules="loginEmailRules" label="e-mail" required></v-text-field>
-            <v-text-field v-model="confirmcode" :rules="loginEmailRules" label="confirmation code" required></v-text-field>
+        <v-form ref="confirmForm" lazy-validation>
+            <v-text-field v-model="email" label="e-mail" required></v-text-field>
+            <v-text-field v-model="confirmcode" label="confirmation code" required></v-text-field>
             <v-btn class="error mt4" @click="confirm()" > Verify Now </v-btn>
 
         </v-form>
@@ -26,7 +26,7 @@ export default {
     methods: {
         confirm () {
             /*eslint no-unused-vars: "off"*/
-            this.$cognitoAuth.confirmRegistration(this.username, this.confirmcode, (err, result) => {
+            this.$cognitoAuth.confirmRegistration(this.email, this.confirmcode, (err, result) => {
                 if (err) {
                     this.error = err
                 } else {
